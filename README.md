@@ -1,2 +1,2 @@
 # Vector.h
-This Vector header file hass been implemented as part of the course Programming 2.
+This Vector header file has been implemented as part of the Vienna University course Programming 2. It contains 
