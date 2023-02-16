@@ -1,2 +1,2 @@
 # Vector.h
-This Vector header file has been implemented as part of the Vienna University course Programming 2. It contains 
+This Vector header file has been implemented as part of the Vienna University course Programming 2. It contains such funtionalities as size(), empty(), clear(), reserve(), shrink_to_fit(), push_back(), pop_back(), capacity(), operator[] and also uses iterators and const interators with funtionalities begin(), end(), insert(), erase(), operator*, operator->, operator!=, operator==, operator++ (pre-increment) and operator++(int) `(post-increment)`.
