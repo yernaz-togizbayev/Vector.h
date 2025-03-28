@@ -49,18 +49,18 @@ int main() {
 ```
 
 ## Iterator Support
-- Fully supports STL-style iteration with begin() and end()
+- Fully supports STL-style iteration with `begin()` and `end()`
 - Returns constant iterators
 - Allows seamless use in `for-each` loops
 
 
 ## Internal Design Notes
-- Hashing: Uses std::hash<Key> for key hashing.
+- Hashing: Uses `std::hash<Key>` for key hashing.
 - Load Factor: Automatically resizes when load exceeds 0.7
 - Rehashing: Table size scales up (×3) to maintain performance
 
 ## Dump Function
-- Includes a helpful dump() function to print the internal state of the hash table for debugging purposes.
+- Includes a helpful `dump()` function to print the internal state of the hash table for debugging purposes.
 ```cpp
 myset.dump(); // Outputs contents and structure to std::cerr
 ```
