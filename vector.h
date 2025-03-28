@@ -1,306 +1,321 @@
-#ifndef VECTOR_H
-#define VECTOR_H
+#ifndef ADS_SET_H
+#define ADS_SET_H
 
+#include <functional>
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
-#include <initializer_list>
 
-template <typename T>
-class Vector;
-
-template <typename T>
-class Vector {
+template <typename Key, size_t N = 10>
+class ADS_set
+{
 public:
-	class ConstIterator;
-	class Iterator;
-    using value_type = T;
-	using size_type = std::size_t;
-	using difference_type = std::ptrdiff_t;
-	using reference = value_type&;
-	using const_reference = const value_type&;
-    using pointer = value_type*;
-	using const_pointer = const value_type*;
-	using iterator = Vector::Iterator;
-	using const_iterator = Vector::ConstIterator;
+    class Iterator;
+    using value_type = Key;
+    using key_type = Key;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+    using size_type = size_t;
+    using difference_type = std::ptrdiff_t;
+    using const_iterator = Iterator;
+    using iterator = const_iterator;
+    using key_equal = std::equal_to<key_type>;
+    using hasher = std::hash<key_type>;
+
+ private:
+    struct Element
+    {
+        key_type key;
+        Element *next;
+
+        Element(const key_type& key, Element* next = nullptr) : key(key), next(next) {}
+    };
+    Element **table {nullptr};
+    size_type table_size {0};
+    size_type current_size {0};
+    float max_lf {0.7};
     
-private:
-	size_type sz;
-	size_type max_sz;
-	pointer values;
-	static constexpr size_type min_sz{5};
+
+    Element *add(const key_type &key);
+    Element *locate (const key_type &key) const;
+    size_type h(const key_type &key) const { return hasher{}(key) % table_size; }
+    void reserve(size_type n);
+    void rehash(size_type n);
+
 public:
-	Vector() {
-		max_sz = 0;
-		sz = 0;
-		values = nullptr;
-	}
+    ADS_set() { rehash(N); }
+    ADS_set(std::initializer_list<key_type> ilist): ADS_set{} { insert(ilist); }
+    template <typename InputIt> ADS_set(InputIt first, InputIt last): ADS_set{} { insert(first, last); }
+    ADS_set(const ADS_set &other): ADS_set(other.begin(), other.end()) {}
+    ~ADS_set();
 
-	Vector(const Vector<T>& src) {
-		max_sz = src.max_sz;
-		sz = src.sz;
-		values = new value_type[max_sz];
+    ADS_set &operator=(const ADS_set &other);
+    ADS_set &operator=(std::initializer_list<key_type> ilist);
+    
+    size_type size() const { return current_size; }
+    bool empty() const { return current_size == 0; }
 
-		for (size_type i{0}; i < sz; ++i)
-			values[i] = src.values[i];
-	}
+    void insert(std::initializer_list<key_type> ilist) { insert(ilist.begin(), ilist.end()); }
+    std::pair<iterator, bool> insert(const key_type &key);
+    template <typename InputIt> void insert(InputIt first, InputIt last);
 
-	Vector(size_type n) {
-		sz = 0;
-		max_sz = (n<min_sz) ? min_sz : n;
-		values = new value_type[max_sz];
-	}
+    void clear();
+    size_type erase(const key_type &key);
 
-	Vector(const std::initializer_list<value_type>& init_list) {
-		size_type init_list_size = init_list.size();
-		
-		sz = init_list_size;
-		max_sz = init_list_size;
+    size_type count(const key_type &key) const { return locate(key) != nullptr; }
+    iterator find(const key_type &key) const;
 
-		values = new value_type[max_sz];
-		
-		size_type i{0};
-		for(const_pointer iter{init_list.begin()}; iter != init_list.end(); ++i, ++iter)
-			values[i] = *iter;
-	}
+    void swap(ADS_set &other);
 
-	~Vector() {delete[] values;}
+    const_iterator begin() const;
+    const_iterator end() const;
 
-	inline Vector<T>& operator= (Vector<T> src) {
-		std::swap(sz, src.sz);
-		std::swap(max_sz, src.max_sz);
-		std::swap(values, src.values);
-		return *this;
-	}
+    void dump(std::ostream &o = std::cerr) const;
 
-	inline size_type size() const {return sz;}
-
-	inline bool empty() const {return sz == 0;}
-	
-	inline void clear() {sz = 0;}
-	
-	void reserve(size_type n) {
-        if (n > max_sz) {
-            value_type* new_values = new value_type[n];
-            for (Vector<T>::size_type i{0}; i < sz; ++i)
-                new_values[i] = values[i];
-            max_sz = n;
-            delete[] values;
-            values = new_values;
-        }
+    friend bool operator==(const ADS_set &lhs, const ADS_set &rhs)
+    {
+        if (lhs.current_size != rhs.current_size) return false;
+        for (const auto &key : lhs) if (!rhs.count(key)) return false;
+        return true;
     }
 
-	inline void shrink_to_fit() {
-		if (max_sz > sz)
-			max_sz = sz;
-		else return;
-		}
-
-	inline void push_back(const_reference val) {
-		if(sz >= max_sz)
-			reserve(2*max_sz+1);
-		values[sz++] = val;
-	}
-
-	inline void pop_back() {
-		if (empty())
-			throw std::runtime_error("vector is empty");
-		--sz;
-	}
-
-	inline reference operator[](size_type index) {
-		if (index >= 0 && index < sz)
-    		return values[index];
-		throw std::runtime_error("Out of range");
-	}
-
-	inline const_reference operator[](size_type index) const {
-		if (index >= 0 && index < sz)
-			return values[index];
-    	throw std::runtime_error("Out of range");
-	}
-
-	inline size_type capacity() const {return max_sz;}
-	
-	inline iterator begin() {
-		pointer end { values + size() };
-		iterator itr_begin { values, end };
-		return itr_begin;
-	}
-	
-	inline iterator end() {
-		pointer end { values + size() };
-		iterator itr_end { end, end };
-		return itr_end;
-	}
-	
-	inline const_iterator begin() const {
-		pointer end { values + size() };
-		const_iterator itr_begin { values, end };
-		return itr_begin;
-	}
-	
-	inline const_iterator end() const {
-		pointer end { values + size() };
-		const_iterator itr_end { end, end };
-		return itr_end;
-	}
-	
-	iterator insert(const_iterator pos, const_reference val) {
-		auto diff = pos - begin();
-		if (diff < 0 || static_cast<size_type>(diff) > sz)
-			throw std::runtime_error("Iterator out of bounds");
-		size_type current{static_cast<size_type>(diff)};
-		if (sz >= max_sz)
-			reserve(max_sz*2 + 1);
-		for (auto i{sz}; i-- > current;)
-			values[i+1] = values[i];
-		values[current] = val;
-		++sz;
-		return iterator{values+current};
-	}
-	
-	iterator erase(const_iterator pos) {
-		auto diff = pos - begin();
-		if (diff < 0 || static_cast<size_type>(diff) >= sz)
-			throw std::runtime_error("Iterator out of bounds");
-		size_type current{static_cast<size_type>(diff)};
-		for (auto i{current}; i < sz-1; ++i)
-			values[i] = values[i+1];
-		--sz;
-		return iterator{values+current};
-	}
-	
-
-	template <typename U>
-	friend std::ostream& operator<< (std::ostream& o, const Vector<U>& v);
-	
-	
-	
-	class Iterator {
-		public:
-			using value_type = Vector::value_type;
-			using reference = Vector::reference;
-			using pointer = Vector::pointer;
-			using difference_type = Vector::difference_type;
-			using iterator_category = std::forward_iterator_tag;
-		private:
-			pointer ptr, end_ptr;
-		public:
-			Iterator() : ptr{nullptr}, end_ptr{nullptr} {}
-
-			Iterator(pointer ptr, pointer end_ptr = nullptr) : ptr{ptr}, end_ptr{end_ptr} {}
-
-			inline reference operator*() const {
-				if(ptr == end_ptr)
-					throw std::runtime_error("out of bounds");
-				return *ptr;
-			}
-			
-			inline pointer operator->() const {
-				if (ptr == end_ptr)
-					throw std::runtime_error("out of bounds");
-				return ptr;
-			}
-			
-			inline bool operator== (const const_iterator& x) const {
-				return static_cast<ConstIterator>(*this) == x;
-			}
-			
-			inline bool operator!= (const const_iterator& x) const {
-				return static_cast<ConstIterator>(*this) != x;
-			}
-			
-			inline iterator& operator++() {
-				if (ptr == end_ptr)
-					return *this;
-				++ptr;
-				return *this;
-			}
-			
-			inline iterator operator++(int) {
-				if (ptr == end_ptr)
-					return *this;
-				iterator temp{*this};
-				++ptr;
-				return temp;
-			}
-			
-			inline operator const_iterator() const {
-				return ConstIterator( this->ptr, this->end_ptr );
-			}
-			
-			inline difference_type operator- (const const_iterator& x) {
-				return static_cast<ConstIterator>(*this) - x;
-			}
-	};
-	
-	
-	
-	class ConstIterator {
-		public:
-			using value_type = Vector::value_type;
-			using reference = Vector::const_reference;
-			using pointer = Vector::const_pointer;
-			using difference_type = Vector::difference_type;
-			using iterator_category = std::forward_iterator_tag;
-		private:
-			pointer ptr, end_ptr;
-		public:			
-			ConstIterator() : ptr{nullptr}, end_ptr{nullptr} {}
-
-			ConstIterator(pointer ptr, pointer end_ptr = nullptr): ptr{ptr}, end_ptr{end_ptr} {}
-			
-			inline reference operator*() const {
-				if(ptr == end_ptr)
-					throw std::runtime_error("out of bounds");
-				return *ptr;
-			}
-			
-			inline pointer operator->() const {
-				if (ptr == end_ptr)
-					throw std::runtime_error("out of bounds");
-				return ptr;
-			}
-			
-			inline bool operator== (const const_iterator& x) const {return ptr == x.ptr;}
-			
-			inline bool operator!= (const const_iterator& x) const {return ptr != x.ptr;}
-			
-			inline const_iterator& operator++() {
-				if (ptr == end_ptr)
-					return *this;
-				++ptr;
-				return *this;
-			}
-			
-			inline const_iterator operator++(int) {
-				if (ptr == end_ptr)
-					return *this;
-				const_iterator temp{*this};
-				++ptr;
-				return temp;
-			}
-			
-			inline difference_type operator- (const const_iterator& x) const {
-				return ptr - x.ptr;
-			}
-	};
+    friend bool operator!=(const ADS_set &lhs, const ADS_set &rhs) { return !(lhs == rhs); }
 };
 
-template <typename T>
-std::ostream& operator<< (std::ostream& o, const Vector<T>& v) {
-	o << '[';
-	bool first{true};
-	for (size_t i{0}; i < v.size(); ++i)
-	{
-		if (first)
-			first = false;
-		else o << ", ";
-		o << v.values[i];
-	}
-		
-	o << ']';
-	return o;
+template <typename Key, size_t N>
+void ADS_set<Key, N>::swap(ADS_set &other)
+{
+    std::swap(table, other.table);
+    std::swap(table_size, other.table_size);
+    std::swap(current_size, other.current_size);
+    std::swap(max_lf, other.max_lf);
 }
 
-#endif
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::iterator ADS_set<Key, N>::find(const key_type &key) const
+{
+    if (auto elem {locate(key)}) return Iterator(&table[h(key)], &table[table_size], elem);
+    return end();
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::size_type ADS_set<Key, N>::erase(const key_type &key)
+{
+    size_type index = h(key);
+    Element *prev = nullptr;
+    for (Element *elem = table[index]; elem; prev = elem, elem = elem->next)
+    {
+        if (key_equal{}(elem->key, key))
+        {
+            if (prev) prev->next = elem->next;
+            else table[index] = elem->next;
+            
+            delete elem;
+            --current_size;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+template <typename Key, size_t N>
+void ADS_set<Key,N>::clear()
+{
+  ADS_set tmp;
+  swap(tmp);
+}
+
+template <typename Key, size_t N>
+std::pair<typename ADS_set<Key,N>::iterator,bool> ADS_set<Key, N>::insert(const key_type &key)
+{
+    if (auto elem{locate(key)}) return {Iterator(&table[h(key)], &table[table_size], elem), false};
+    reserve(current_size + 1);
+    return {iterator(&table[h(key)], &table[table_size], add(key)), true};
+}
+
+template<typename Key, size_t N>
+ADS_set<Key, N> &ADS_set<Key, N>::operator=(const ADS_set &other)
+{
+    ADS_set tmp{other};
+    swap(tmp);
+    return *this;
+}
+
+template <typename Key, size_t N>
+ADS_set<Key, N> &ADS_set<Key, N>::operator=(std::initializer_list<key_type> ilist)
+{
+    ADS_set tmp{ilist};
+    swap(tmp);
+    return *this;
+}
+
+template <typename Key, size_t N>
+ADS_set<Key,N>::~ADS_set()
+{
+    for (size_type i = 0; i < table_size; ++i)
+    {
+        Element *current = table[i];
+        while (current)
+        {
+            Element *to_delete = current;
+            current = current->next;
+            delete to_delete;
+        }
+    }
+    delete[] table;
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::Element* ADS_set<Key, N>::add(const key_type &key)
+{
+    size_type index = h(key);
+    Element *new_element = new Element(key, table[index]);
+    table[index] = new_element;
+    ++current_size;
+    return new_element;
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::Element* ADS_set<Key, N>::locate(const key_type &key) const
+{
+    for (Element *elem = table[h(key)]; elem; elem = elem->next)
+        if (key_equal{}(elem->key, key)) return elem;
+    return nullptr;
+}
+
+template <typename Key, size_t N>
+template <typename InputIt> void ADS_set<Key, N>::insert(InputIt first, InputIt last)
+{
+    for (auto it{first}; it != last; ++it)
+    {
+        if (!count(*it))
+        {
+            reserve(current_size + 1);
+            add(*it);
+        }
+    }
+}
+
+template <typename Key, size_t N>
+void ADS_set<Key,N>::dump(std::ostream &o) const
+{
+    o << "table size = " << table_size << ", current_size = " << current_size << "\n";
+    for (size_type idx {0}; idx < table_size; ++idx)
+    {
+        o << idx << ": ";
+        for (Element *tmp{table[idx]}; tmp; tmp = tmp->next)
+            o << " --> " << tmp->key;
+        o << "\n";
+    }
+    o << "\n";
+}
+
+template <typename Key, size_t N>
+void ADS_set<Key,N>::reserve(size_type n)
+{
+  if (table_size * max_lf >= n) return;
+  size_type new_table_size {table_size};
+  while (new_table_size * max_lf < n) new_table_size *= 3;
+  rehash(new_table_size);
+}
+
+template <typename Key, size_t N>
+void ADS_set<Key,N>::rehash(size_type n)
+{
+  size_type new_table_size {std::max(N,std::max(n,size_type(current_size/max_lf)))};
+  Element **new_table {new Element *[new_table_size + 1]()};
+  Element **old_table {table};
+  size_type old_table_size {table_size};
+
+  table = new_table;
+  table_size = new_table_size;
+  size_type new_current_size = 0;
+  
+  for (size_type i {0}; i < old_table_size; ++i)
+  {
+    Element *current = old_table[i];
+    while (current)
+    {
+        Element *next = current->next;
+        size_type new_index = h(current->key);
+        current->next = table[new_index];
+        table[new_index] = current;
+        current = next;
+        new_current_size++;
+    }
+  }
+  current_size = new_current_size;
+  delete[] old_table;
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::const_iterator ADS_set<Key, N>::begin() const
+{
+    for (size_type i{0}; i < table_size; ++i)
+    {
+        if (table[i])
+            return const_iterator(&table[i], &table[table_size], table[i]);
+    }
+
+    return end();
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::const_iterator ADS_set<Key, N>::end() const
+{ 
+    return const_iterator(&table[table_size], &table[table_size], nullptr);
+}
+
+template <typename Key, size_t N>
+class ADS_set<Key, N>::Iterator
+{
+public:
+    using value_type = Key;
+    using difference_type = std::ptrdiff_t;
+    using reference = const value_type &;
+    using pointer = const value_type *;
+    using iterator_category = std::forward_iterator_tag;
+
+    explicit Iterator(Element **table = nullptr, Element **end_table = nullptr, Element *current = nullptr) : table(table), end_table(end_table), current(current){}
+    
+    reference operator*() const { return current->key; }
+
+    pointer operator->() const { return &current->key; }
+    
+    Iterator &operator++()
+    {
+        current = current->next;
+        skip();
+        return *this;
+    }
+    
+    Iterator operator++(int)
+    {
+        Iterator tmp{*this};
+        ++*this;
+        return tmp;
+    }
+    friend bool operator==(const Iterator &lhs, const Iterator &rhs) { return lhs.current == rhs.current; }
+
+    friend bool operator!=(const Iterator &lhs, const Iterator &rhs) { return !(lhs == rhs); }
+
+private:
+    Element **table;
+    Element **end_table;
+    Element *current;
+
+    void skip()
+    {
+        if (!current && table != end_table)
+        {
+            ++table;
+            while (table != end_table && !(*table)) ++table;
+            if (table != end_table) current = *table;
+        }
+    }
+};
+
+template <typename Key, size_t N>
+void swap(ADS_set<Key, N> &lhs, ADS_set<Key, N> &rhs) { lhs.swap(rhs); }
+
+#endif  // ADS_SET_H
